@@ -1,0 +1,43 @@
+{
+  "title": "AutoHealOps Cluster Dashboard",
+  "description": "Real-time Kubernetes metrics and AI anomaly detection",
+  "tags": ["kubernetes", "autohealops", "ai"],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Cluster Health Score",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
+      "targets": [{"expr": "autohealops_health_score", "legendFormat": "Health Score"}]
+    },
+    {
+      "id": 2,
+      "title": "CPU Usage",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "targets": [{"expr": "avg(rate(container_cpu_usage_seconds_total[5m]))", "legendFormat": "CPU"}]
+    },
+    {
+      "id": 3,
+      "title": "Memory Usage",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "targets": [{"expr": "avg(container_memory_usage_bytes)", "legendFormat": "Memory"}]
+    },
+    {
+      "id": 4,
+      "title": "Pod Restarts",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "targets": [{"expr": "sum(kube_pod_container_status_restarts_total)", "legendFormat": "Restarts"}]
+    },
+    {
+      "id": 5,
+      "title": "Active Alerts",
+      "type": "table",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+    }
+  ],
+  "schemaVersion": 36,
+  "version": 1
+}

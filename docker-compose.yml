@@ -1,0 +1,110 @@
+version: '3.9'
+
+services:
+
+  frontend:
+    build: ./frontend
+    container_name: autohealops-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+      - REACT_APP_WS_URL=ws://localhost:8000/ws
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - autohealops-net
+
+  backend:
+    build: ./backend
+    container_name: autohealops-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/autohealops
+      - JWT_SECRET=${JWT_SECRET:-autohealops-default-secret}
+      - PROMETHEUS_URL=http://prometheus:9090
+      - AI_ENGINE_URL=http://ai-engine:8001
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
+    depends_on:
+      - mongo
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - autohealops-net
+
+  ai-engine:
+    build: ./ai-engine
+    container_name: autohealops-ai-engine
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./ai-engine:/app
+      - ./data:/app/data
+    restart: unless-stopped
+    networks:
+      - autohealops-net
+
+  healer:
+    build:
+      context: .
+      dockerfile: scripts/Dockerfile.healer
+    container_name: autohealops-healer
+    environment:
+      - AI_ENGINE_URL=http://ai-engine:8001
+      - BACKEND_URL=http://backend:8000
+      - HEAL_POLL_INTERVAL=30
+    volumes:
+      - ~/.kube:/root/.kube:ro
+    depends_on:
+      - ai-engine
+      - backend
+    restart: unless-stopped
+    networks:
+      - autohealops-net
+
+  mongo:
+    image: mongo:6.0
+    container_name: autohealops-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    restart: unless-stopped
+    networks:
+      - autohealops-net
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: autohealops-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    restart: unless-stopped
+    networks:
+      - autohealops-net
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: autohealops-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - autohealops-net
+
+volumes:
+  mongo-data:
+  grafana-data:
+
+networks:
+  autohealops-net:
+    driver: bridge

@@ -1,0 +1,13 @@
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+motor==3.3.2
+pymongo==4.6.1
+python-jose[cryptography]==3.3.0
+python-multipart==0.0.6
+httpx==0.25.2
+prometheus-api-client==0.5.3
+kubernetes==28.1.0
+python-dotenv==1.0.0
+aiosmtplib==3.0.0
+slack-sdk==3.26.1
+pydantic==2.5.0

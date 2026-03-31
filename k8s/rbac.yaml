@@ -1,0 +1,34 @@
+# AutoHealOps - RBAC Configuration
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: autohealops-sa
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: autohealops-role
+rules:
+- apiGroups: [""]
+  resources: ["pods", "nodes", "services", "endpoints"]
+  verbs: ["get", "list", "watch", "delete"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch", "patch", "update"]
+- apiGroups: ["autoscaling"]
+  resources: ["horizontalpodautoscalers"]
+  verbs: ["get", "list", "watch", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: autohealops-binding
+subjects:
+- kind: ServiceAccount
+  name: autohealops-sa
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: autohealops-role
+  apiGroup: rbac.authorization.k8s.io

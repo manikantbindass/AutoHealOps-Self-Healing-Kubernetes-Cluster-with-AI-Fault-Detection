@@ -1,0 +1,107 @@
+# AutoHealOps - Kubernetes Deployments
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: autohealops-backend
+  namespace: default
+  labels:
+    app: autohealops-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: autohealops-backend
+  template:
+    metadata:
+      labels:
+        app: autohealops-backend
+    spec:
+      containers:
+      - name: backend
+        image: autohealops-backend:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+        env:
+        - name: MONGO_URI
+          valueFrom:
+            secretKeyRef:
+              name: autohealops-secrets
+              key: mongo-uri
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: autohealops-secrets
+              key: jwt-secret
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: autohealops-ai-engine
+  namespace: default
+  labels:
+    app: autohealops-ai-engine
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: autohealops-ai-engine
+  template:
+    metadata:
+      labels:
+        app: autohealops-ai-engine
+    spec:
+      containers:
+      - name: ai-engine
+        image: autohealops-ai-engine:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8001
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: autohealops-frontend
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: autohealops-frontend
+  template:
+    metadata:
+      labels:
+        app: autohealops-frontend
+    spec:
+      containers:
+      - name: frontend
+        image: autohealops-frontend:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000

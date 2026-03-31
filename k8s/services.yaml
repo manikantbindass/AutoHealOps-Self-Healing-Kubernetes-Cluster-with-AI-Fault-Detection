@@ -1,0 +1,42 @@
+# AutoHealOps - Kubernetes Services
+apiVersion: v1
+kind: Service
+metadata:
+  name: autohealops-backend-svc
+  namespace: default
+spec:
+  selector:
+    app: autohealops-backend
+  ports:
+  - protocol: TCP
+    port: 8000
+    targetPort: 8000
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: autohealops-ai-engine-svc
+  namespace: default
+spec:
+  selector:
+    app: autohealops-ai-engine
+  ports:
+  - protocol: TCP
+    port: 8001
+    targetPort: 8001
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: autohealops-frontend-svc
+  namespace: default
+spec:
+  selector:
+    app: autohealops-frontend
+  ports:
+  - protocol: TCP
+    port: 3000
+    targetPort: 3000
+  type: NodePort
