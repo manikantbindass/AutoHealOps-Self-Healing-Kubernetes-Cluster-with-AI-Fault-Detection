@@ -1,0 +1,88 @@
+name: verify
+permissions:
+  contents: read
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - run: pip install -r requirements-dev.txt
+    - run: python -m ruff check backend ai-engine scripts && python -m ruff format
+        --check backend ai-engine scripts
+    - run: python -m pytest backend/tests -q
+    - run: python -m pytest tests -q
+      working-directory: ai-engine
+    - run: cp .env.example .env && docker compose config --quiet
+    - run: python scripts/validate-config.py
+    - run: pip-audit -r backend/requirements.txt -r ai-engine/requirements.txt
+      continue-on-error: true
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: npm
+        cache-dependency-path: frontend/package-lock.json
+    - run: npm ci
+    - run: npm test
+      env:
+        CI: 'true'
+    - run: npm run lint && npm run format:check
+    - run: npm run build
+      env:
+        CI: 'true'
+    - run: npm audit --omit=dev
+      continue-on-error: true
+  containers:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - run: cp .env.example .env && docker compose build
+  browser:
+    runs-on: ubuntu-latest
+    needs:
+    - python
+    - frontend
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: npm
+        cache-dependency-path: frontend/package-lock.json
+    - run: pip install -r requirements-dev.txt
+    - run: npm ci && npm run build && npx playwright install --with-deps chromium
+      working-directory: frontend
+    - run: 'nohup python -m uvicorn --app-dir ai-engine main:app --host 127.0.0.1
+        --port 8001 > /tmp/ai.log 2>&1 &
+
+        nohup python -m uvicorn --app-dir backend main:app --host 127.0.0.1 --port
+        8000 > /tmp/backend.log 2>&1 &
+
+        nohup node scripts/serve-preview.cjs > /tmp/frontend.log 2>&1 &
+
+        python scripts/wait-ready.py'
+      env:
+        MODE: demo
+        AI_URL: http://127.0.0.1:8001
+    - run: npm run e2e
+      working-directory: frontend
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: browser-screenshots
+        path: docs/screenshots
+'on':
+- push
+- pull_request

@@ -1,110 +1,113 @@
-version: '3.9'
-
+name: autohealops
 services:
-
   frontend:
     build: ./frontend
-    container_name: autohealops-frontend
     ports:
-      - "3000:3000"
-    environment:
-      - REACT_APP_API_URL=http://localhost:8000
-      - REACT_APP_WS_URL=ws://localhost:8000/ws
+    - 127.0.0.1:3000:3000
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
-    networks:
-      - autohealops-net
-
+    security_opt:
+    - no-new-privileges:true
   backend:
     build: ./backend
-    container_name: autohealops-backend
     ports:
-      - "8000:8000"
+    - 127.0.0.1:8000:8000
+    env_file: .env
     environment:
-      - MONGO_URI=mongodb://mongo:27017/autohealops
-      - JWT_SECRET=${JWT_SECRET:-autohealops-default-secret}
-      - PROMETHEUS_URL=http://prometheus:9090
-      - AI_ENGINE_URL=http://ai-engine:8001
-      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
+      MONGO_URI: mongodb://mongo:27017/autohealops
+      AI_URL: http://ai-engine:8001
+      PROMETHEUS_URL: http://prometheus:9090
     depends_on:
-      - mongo
-      - prometheus
+      mongo:
+        condition: service_healthy
+      ai-engine:
+        condition: service_healthy
+    volumes:
+    - backend-data:/app/data
     restart: unless-stopped
-    networks:
-      - autohealops-net
-
+    security_opt:
+    - no-new-privileges:true
   ai-engine:
     build: ./ai-engine
-    container_name: autohealops-ai-engine
     ports:
-      - "8001:8001"
-    volumes:
-      - ./ai-engine:/app
-      - ./data:/app/data
+    - 127.0.0.1:8001:8001
     restart: unless-stopped
-    networks:
-      - autohealops-net
-
-  healer:
-    build:
-      context: .
-      dockerfile: scripts/Dockerfile.healer
-    container_name: autohealops-healer
-    environment:
-      - AI_ENGINE_URL=http://ai-engine:8001
-      - BACKEND_URL=http://backend:8000
-      - HEAL_POLL_INTERVAL=30
-    volumes:
-      - ~/.kube:/root/.kube:ro
-    depends_on:
-      - ai-engine
-      - backend
-    restart: unless-stopped
-    networks:
-      - autohealops-net
-
+    security_opt:
+    - no-new-privileges:true
   mongo:
-    image: mongo:6.0
-    container_name: autohealops-mongo
-    ports:
-      - "27017:27017"
+    image: mongo:7.0.16
     volumes:
-      - mongo-data:/data/db
+    - mongo-data:/data/db
+    healthcheck:
+      test:
+      - CMD
+      - mongosh
+      - --quiet
+      - --eval
+      - db.adminCommand('ping').ok
+      interval: 10s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
-    networks:
-      - autohealops-net
-
   prometheus:
-    image: prom/prometheus:latest
-    container_name: autohealops-prometheus
+    image: prom/prometheus:v3.2.1
+    profiles:
+    - monitoring
     ports:
-      - "9090:9090"
+    - 127.0.0.1:9090:9090
     volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    - prometheus-data:/prometheus
+    command:
+    - --config.file=/etc/prometheus/prometheus.yml
+    - --storage.tsdb.retention.time=7d
+    healthcheck:
+      test:
+      - CMD
+      - wget
+      - -q
+      - -O
+      - /dev/null
+      - http://localhost:9090/-/ready
+      interval: 15s
+      retries: 5
     restart: unless-stopped
-    networks:
-      - autohealops-net
-
   grafana:
-    image: grafana/grafana:latest
-    container_name: autohealops-grafana
+    image: grafana/grafana:11.6.0
+    profiles:
+    - monitoring
     ports:
-      - "3001:3000"
+    - 127.0.0.1:3001:3000
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
     volumes:
-      - grafana-data:/var/lib/grafana
+    - grafana-data:/var/lib/grafana
+    - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    - ./monitoring/grafana/dashboard.json:/var/lib/grafana/dashboards/autohealops.json:ro
     depends_on:
-      - prometheus
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD
+      - wget
+      - -q
+      - -O
+      - /dev/null
+      - http://localhost:3000/api/health
+      interval: 15s
+      retries: 5
     restart: unless-stopped
-    networks:
-      - autohealops-net
-
+    entrypoint:
+    - /bin/sh
+    - -ec
+    - test -n "$$GF_SECURITY_ADMIN_PASSWORD" || { echo "GRAFANA_ADMIN_PASSWORD is
+      required; run setup.ps1"; exit 1; }; exec /run.sh
 volumes:
-  mongo-data:
-  grafana-data:
-
-networks:
-  autohealops-net:
-    driver: bridge
+  backend-data: null
+  mongo-data: null
+  prometheus-data: null
+  grafana-data: null

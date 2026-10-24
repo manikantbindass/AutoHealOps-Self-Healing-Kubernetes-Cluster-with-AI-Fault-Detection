@@ -1,107 +1,190 @@
-# AutoHealOps - Kubernetes Deployments
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: autohealops-backend
-  namespace: default
-  labels:
-    app: autohealops-backend
+  namespace: autohealops
 spec:
-  replicas: 2
+  replicas: 1
+  strategy:
+    type: Recreate
   selector:
-    matchLabels:
+    matchLabels: &id001
       app: autohealops-backend
   template:
     metadata:
-      labels:
-        app: autohealops-backend
+      labels: *id001
     spec:
+      automountServiceAccountToken: true
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+        runAsUser: 10001
+        fsGroup: 10001
       containers:
       - name: backend
-        image: autohealops-backend:latest
+        image: autohealops-backend:2.0.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8000
-        env:
-        - name: MONGO_URI
-          valueFrom:
-            secretKeyRef:
-              name: autohealops-secrets
-              key: mongo-uri
-        - name: JWT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: autohealops-secrets
-              key: jwt-secret
         resources:
           requests:
-            memory: "256Mi"
-            cpu: "250m"
+            cpu: 100m
+            memory: 256Mi
           limits:
-            memory: "512Mi"
-            cpu: "500m"
+            cpu: 1000m
+            memory: 512Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        startupProbe:
+          httpGet:
+            path: /health/live
+            port: 8000
+          failureThreshold: 30
+          periodSeconds: 5
         livenessProbe:
           httpGet:
-            path: /
+            path: /health/live
             port: 8000
-          initialDelaySeconds: 30
-          periodSeconds: 10
+          periodSeconds: 15
         readinessProbe:
           httpGet:
-            path: /
+            path: /health/ready
             port: 8000
-          initialDelaySeconds: 10
-          periodSeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+        envFrom:
+        - configMapRef:
+            name: autohealops-config
+        volumeMounts:
+        - name: data
+          mountPath: /app/data
+      serviceAccountName: autohealops-sa
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: autohealops-data
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: autohealops-ai-engine
-  namespace: default
-  labels:
-    app: autohealops-ai-engine
+  namespace: autohealops
 spec:
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
-    matchLabels:
+    matchLabels: &id001
       app: autohealops-ai-engine
   template:
     metadata:
-      labels:
-        app: autohealops-ai-engine
+      labels: *id001
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+        runAsUser: 10001
       containers:
       - name: ai-engine
-        image: autohealops-ai-engine:latest
+        image: autohealops-ai-engine:2.0.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8001
         resources:
           requests:
-            memory: "512Mi"
-            cpu: "500m"
+            cpu: 250m
+            memory: 384Mi
           limits:
-            memory: "1Gi"
-            cpu: "1000m"
+            cpu: 1000m
+            memory: 1Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        startupProbe:
+          httpGet:
+            path: /health/live
+            port: 8001
+          failureThreshold: 30
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 8001
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /health/live
+            port: 8001
+          periodSeconds: 10
+          timeoutSeconds: 5
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: autohealops-frontend
-  namespace: default
+  namespace: autohealops
 spec:
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
-    matchLabels:
+    matchLabels: &id001
       app: autohealops-frontend
   template:
     metadata:
-      labels:
-        app: autohealops-frontend
+      labels: *id001
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: frontend
-        image: autohealops-frontend:latest
+        image: autohealops-frontend:2.0.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3000
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          failureThreshold: 30
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          periodSeconds: 10
+          timeoutSeconds: 5
