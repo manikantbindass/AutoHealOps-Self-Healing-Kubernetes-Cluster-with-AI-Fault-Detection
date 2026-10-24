@@ -31,3 +31,12 @@ Docker's Windows/Linux engine pipes were unavailable, and no real cluster was us
 Initial sandboxed test attempts failed on Windows temporary-directory/socket permissions. Successful tests used workspace-local temporary files and an approved normal process context. A Windows WMI diagnostic appeared on one intermediate NumPy import; the final AI rerun passed without that diagnostic. The requirements-resolving Python auditor stalled; the installed environment was successfully audited instead. Starlette currently emits a TestClient/httpx deprecation warning; tests pass, and this is not a failure.
 
 The application is a single-process control plane, not production HA. Multi-cluster authorization, durable distributed execution/notifications, calibrated failure prediction and production load/recovery verification remain future work. See `environment-blockers.md` and `security-operations.md`.
+
+## Public Vercel deployment follow-up
+
+PR #1 merged after all checks passed; the original dashboard screenshot is verified on main. The public deployment is READY at https://autohealops.vercel.app. The repository About website points to that URL.
+
+- Ten frontend tests passed (six original UI tests plus four public-demo behavior tests); lint/formatting, normal build and isolated showcase build passed.
+- Real unauthenticated Edge/Playwright against the Vercel URL passed provenance, browser rules, fault/approval/recovery, all routes/direct deep links, session history, mobile width, zero API/WebSocket traffic, and zero page JavaScript errors.
+- `docs/screenshots/autohealops-vercel.png` is a genuine, visually inspected screenshot captured from the deployed URL. Original README animation markup is preserved.
+- Vercel hosts only an explicitly labelled per-browser simulation. FastAPI, persistent databases, trained ML, shared event delivery and actual Kubernetes execution still require the normal backend deployment.

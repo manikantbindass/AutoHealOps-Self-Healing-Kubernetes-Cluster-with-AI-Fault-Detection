@@ -12,6 +12,16 @@
 
 AutoHealOps is a locally runnable operations console for exploring Kubernetes workloads, inspecting telemetry, detecting unusual behavior and reviewing bounded recovery actions. It ships with a deterministic, clearly labelled demonstration environment and an optional namespace-scoped live adapter. Author: [Manikant Kumar](https://github.com/manikantbindass).
 
+## Live interactive demo
+
+[![Open AutoHealOps on Vercel](https://img.shields.io/badge/Open_live_demo-autohealops.vercel.app-8faaff?style=for-the-badge&logo=vercel)](https://autohealops.vercel.app)
+
+**[Launch AutoHealOps →](https://autohealops.vercel.app)** · An interactive browser simulation with synthetic telemetry, transparent rule-based detections, approval and simulated recovery. Each visitor has an isolated browser session. No backend, trained ML model or Kubernetes cluster is connected to the public demo. The full FastAPI/ML/persistence workflow remains available through local setup below.
+
+![AutoHealOps running on Vercel](docs/screenshots/autohealops-vercel.png)
+
+See [Vercel deployment details](docs/vercel-deployment.md) for hosting boundaries and reproducible build commands.
+
 ## Application preview
 
 A genuine screenshot of the compiled React application running locally, with simulated telemetry:

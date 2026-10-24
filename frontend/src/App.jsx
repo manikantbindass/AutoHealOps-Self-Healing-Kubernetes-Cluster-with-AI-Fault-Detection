@@ -206,8 +206,10 @@ function Shell() {
         {o?.simulated && (
           <div className="demo-banner">
             <span>
-              <span className="demo-tag">DEMO</span>Simulated workloads and
-              telemetry. Recovery actions never touch a real cluster.
+              <span className="demo-tag">DEMO</span>
+              {o.hosting === "browser-showcase"
+                ? "Public browser demo · simulated data, rule-based detection, session-only state. No backend or Kubernetes connection."
+                : "Simulated workloads and telemetry. Recovery actions never touch a real cluster."}
             </span>
             <Link to="/settings">
               Environment details <ExternalLink size={12} />
