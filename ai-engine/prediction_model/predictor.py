@@ -1,44 +1,58 @@
-"""LSTM-based Failure Predictor"""
-import numpy as np
-import os
+"""Metric trend forecast, explicitly not calibrated failure prediction."""
 
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "lstm_model.h5")
+import numpy as np
+from anomaly_detection.detector import FEATURES, validate
+
+
+def forecast(sequence, times):
+    x = validate(sequence)
+    t = np.asarray(times, dtype=float)
+    if (
+        not 6 <= len(x) <= 120
+        or len(t) != len(x)
+        or not np.isfinite(t).all()
+        or not (np.diff(t) > 0).all()
+    ):
+        raise ValueError("Require 6–120 samples and strictly increasing finite timestamps")
+    intervals = np.diff(t)
+    cadence = float(np.median(intervals))
+    if cadence < 1 or cadence > 3600 or np.max(intervals) > cadence * 3:
+        raise ValueError("Sample cadence must be 1–3600s without large gaps")
+    y = x[:, :2]
+    # Expanding chronological holdout: each prediction uses only earlier samples.
+    linear_errors, persistence_errors = [], []
+    for index in range(max(4, len(y) // 2), len(y)):
+        tt = (t[:index] - t[0]) / cadence
+        coefficients = np.linalg.lstsq(
+            np.column_stack([tt, np.ones(index)]), y[:index], rcond=None
+        )[0]
+        predicted = np.clip(np.array([(t[index] - t[0]) / cadence, 1]) @ coefficients, 0, 1)
+        linear_errors.append(abs(predicted - y[index]))
+        persistence_errors.append(abs(y[index - 1] - y[index]))
+    linear_mae = float(np.mean(linear_errors))
+    baseline_mae = float(np.mean(persistence_errors))
+    use_linear = linear_mae < baseline_mae
+    tt = (t - t[0]) / cadence
+    coefficients = np.linalg.lstsq(np.column_stack([tt, np.ones(len(t))]), y, rcond=None)[0]
+    next_value = np.clip(np.array([tt[-1] + 1, 1]) @ coefficients, 0, 1) if use_linear else y[-1]
+    return dict(
+        available=True,
+        model="linear-trend-baseline" if use_linear else "persistence-baseline",
+        model_version="forecast-v2",
+        horizon_seconds=cadence,
+        forecast=dict(zip(FEATURES[:2], map(float, next_value))),
+        evaluation={
+            "linear_mae_fraction": linear_mae,
+            "persistence_mae_fraction": baseline_mae,
+            "holdout_samples": len(linear_errors),
+            "split": "expanding chronological; no future samples in fitting",
+        },
+        uncertainty=None,
+        failure_probability=None,
+        limitations="One-sample CPU/memory forecast. No labelled failure dataset; failure probability, confidence and time-to-failure are unavailable.",
+    )
+
 
 class FailurePredictor:
-    def __init__(self):
-        self.model = None
-        self._load_model()
-
-    def _load_model(self):
-        if os.path.exists(MODEL_PATH):
-            try:
-                import tensorflow as tf
-                self.model = tf.keras.models.load_model(MODEL_PATH)
-                print("✅ LSTM prediction model loaded")
-            except Exception as e:
-                print(f"⚠️ LSTM model load failed: {e}. Using heuristic fallback.")
-        else:
-            print("⚠️ LSTM model not found. Run training/train_lstm.py to train it.")
-
-    def predict(self, sequence: np.ndarray) -> dict:
-        """Predict failure probability from metric sequence"""
-        if self.model is not None:
-            try:
-                seq = sequence.reshape(1, sequence.shape[0], sequence.shape[1])
-                output = self.model.predict(seq, verbose=0)[0]
-                return {
-                    "probability": float(output[0]),
-                    "time_to_failure": float(output[1]) * 60,
-                    "confidence": 0.85
-                }
-            except Exception:
-                pass
-        # Heuristic fallback
-        latest = sequence[-1] if len(sequence) > 0 else [0.5, 0.5, 2, 100]
-        cpu, mem = float(latest[0]), float(latest[1])
-        prob = min(1.0, (cpu * 0.4 + mem * 0.4 + 0.2))
-        ttf = max(5, (1 - prob) * 120)
-        return {"probability": round(prob, 3), "time_to_failure": round(ttf, 1), "confidence": 0.6}
-
-    def is_loaded(self) -> bool:
-        return self.model is not None
+    def is_loaded(self):
+        return False
