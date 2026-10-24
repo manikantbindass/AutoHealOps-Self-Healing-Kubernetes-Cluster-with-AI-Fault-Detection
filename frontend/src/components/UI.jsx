@@ -67,39 +67,41 @@ export function Trend({ history = [], latency = false, restarts = false }) {
         >
           <defs>
             <linearGradient id="cpu-fill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#6a9aff" stopOpacity={0.22} />
-              <stop offset="100%" stopColor="#6a9aff" stopOpacity={0} />
+              <stop offset="0%" stopColor="#f2f2f2" stopOpacity={0.22} />
+              <stop offset="100%" stopColor="#f2f2f2" stopOpacity={0} />
             </linearGradient>
             <linearGradient id="mem-fill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#a897ed" stopOpacity={0.12} />
-              <stop offset="100%" stopColor="#a897ed" stopOpacity={0} />
+              <stop offset="0%" stopColor="#8a8d91" stopOpacity={0.12} />
+              <stop offset="100%" stopColor="#8a8d91" stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid
             vertical={false}
-            stroke="#253040"
+            stroke="#222222"
             strokeDasharray="3 4"
           />
           <XAxis
             dataKey="time"
             minTickGap={70}
-            tick={{ fill: "#8793a6", fontSize: 10 }}
+            tick={{ fill: "#8a8d91", fontSize: 11 }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
             domain={latency || restarts ? ["auto", "auto"] : [0, 100]}
-            tick={{ fill: "#8793a6", fontSize: 10 }}
+            tick={{ fill: "#8a8d91", fontSize: 11 }}
             axisLine={false}
             tickLine={false}
             unit={latency ? "ms" : restarts ? "" : "%"}
           />
           <Tooltip
+            labelStyle={{ color: "#f2f2f2" }}
+            itemStyle={{ color: "#f2f2f2" }}
             contentStyle={{
-              background: "#172131",
-              border: "1px solid #334155",
-              borderRadius: 8,
-              color: "#e2e8f0",
+              background: "#141414",
+              border: "1px solid #303030",
+              borderRadius: 6,
+              color: "#f2f2f2",
             }}
           />
           {latency || restarts ? (
@@ -107,7 +109,7 @@ export function Trend({ history = [], latency = false, restarts = false }) {
               isAnimationActive={false}
               dataKey={latency ? "network_latency" : "pod_restarts"}
               name={latency ? "Latency (ms)" : "Restarts (count)"}
-              stroke="#67d7bb"
+              stroke="#d1d1d1"
               strokeWidth={2}
               dot={false}
             />
@@ -118,7 +120,7 @@ export function Trend({ history = [], latency = false, restarts = false }) {
                 type="monotone"
                 dataKey="cpu"
                 name="CPU %"
-                stroke="#6a9aff"
+                stroke="#f2f2f2"
                 fill="url(#cpu-fill)"
                 strokeWidth={2}
               />
@@ -126,8 +128,9 @@ export function Trend({ history = [], latency = false, restarts = false }) {
                 isAnimationActive={false}
                 type="monotone"
                 dataKey="memory"
+                strokeDasharray="5 4"
                 name="Memory %"
-                stroke="#a897ed"
+                stroke="#8a8d91"
                 fill="url(#mem-fill)"
                 strokeWidth={2}
               />
