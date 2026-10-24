@@ -1,35 +1,55 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useState } from "react";
+import { websocketUrl } from "../services/api";
 
-const WS_URL = process.env.REACT_APP_WS_URL || 'ws://localhost:8000/ws';
-
-export function useWebSocket() {
-  const [isConnected, setIsConnected] = useState(false);
-  const [lastMessage, setLastMessage] = useState(null);
-  const ws = useRef(null);
-  const reconnectTimeout = useRef(null);
-
-  const connect = useCallback(() => {
-    try {
-      ws.current = new WebSocket(WS_URL);
-      ws.current.onopen = () => { setIsConnected(true); console.log('WS connected'); };
-      ws.current.onmessage = (e) => setLastMessage(JSON.parse(e.data));
-      ws.current.onclose = () => {
-        setIsConnected(false);
-        reconnectTimeout.current = setTimeout(connect, 3000);
-      };
-      ws.current.onerror = () => ws.current.close();
-    } catch (e) {
-      reconnectTimeout.current = setTimeout(connect, 3000);
-    }
-  }, []);
-
+export function useWebSocket(onUpdate, enabled = true) {
+  const [status, setStatus] = useState("connecting");
   useEffect(() => {
+    if (!enabled) return;
+    let stopped = false,
+      socket,
+      timer,
+      tries = 0;
+    const connect = () => {
+      if (stopped) return;
+      setStatus(tries ? "reconnecting" : "connecting");
+      try {
+        socket = new WebSocket(websocketUrl());
+      } catch {
+        setStatus("disconnected");
+        timer = setTimeout(connect, Math.min(30000, 1000 * 2 ** tries++));
+        return;
+      }
+      socket.onopen = () => {
+        tries = 0;
+        setStatus("connected");
+        const token = sessionStorage.getItem("token");
+        if (token) socket.send(JSON.stringify({ token }));
+      };
+      socket.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          if (message.type === "operational_update" && message.overview)
+            onUpdate(message.overview);
+        } catch {
+          setStatus("invalid message");
+        }
+      };
+      socket.onerror = () => socket.close();
+      socket.onclose = () => {
+        if (stopped) return;
+        setStatus("reconnecting");
+        timer = setTimeout(connect, Math.min(30000, 1000 * 2 ** tries++));
+      };
+    };
     connect();
     return () => {
-      clearTimeout(reconnectTimeout.current);
-      ws.current?.close();
+      stopped = true;
+      clearTimeout(timer);
+      if (socket) {
+        socket.onclose = null;
+        socket.close();
+      }
     };
-  }, [connect]);
-
-  return { isConnected, lastMessage };
+  }, [onUpdate, enabled]);
+  return { status };
 }

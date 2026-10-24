@@ -1,92 +1,25 @@
-# 📋 Software Requirements Specification (SRS)
-## AutoHealOps – Self-Healing Kubernetes Cluster with AI Fault Detection
+# AutoHealOps 2.0 requirements and scope
 
-**Version:** 1.0  
-**Author:** Manikant Kumar  
-**Date:** March 2026
+Author: Manikant Kumar. This document distinguishes delivered behavior from production goals; it does not assert uptime, model accuracy or automatic repair latency without evidence.
 
----
+## Delivered functional scope
 
-## 1. Introduction
+1. Eight responsive React views: overview, inventory/detail inspection, telemetry, fault intelligence, safe recovery, incidents, audit, settings/integration status.
+2. Explicit deterministic demo mode with healthy workloads and CPU/memory/restart/latency scenarios. No demo operation invokes Kubernetes.
+3. FastAPI v1 contracts, bounded pagination/retention, request IDs, UTC timestamps, validated feature inputs and OpenAPI documentation.
+4. SQLite native persistence or MongoDB document persistence/indexes, bounded startup retries, liveness/readiness and application Prometheus instrumentation.
+5. One shared collector broadcasts changing operational snapshots; browser reconnects exponentially and uses a bounded fallback refresh.
+6. Compatible persisted StandardScaler/IsolationForest inference, explicit CLI training and transparent threshold fallback. Forecasting compares trend/persistence using chronological holdout. No calibrated failure probability is claimed.
+7. Recommended/approved/executing/completed remediation with explicit dry-run, pause, one operation concurrency, namespace/ownership validation, replica cap, cooldown, hourly budget, deduplication and idempotent completion.
+8. Live rollout restart/scale adapters verify rollout availability, failing honestly when unavailable/unverified. No namespace, volume, database, node drain or arbitrary shell operations.
+9. Strong live/production credentials, expiring JWTs, administrator/viewer roles, CORS/WS origin checks, login throttling and secret-free settings responses.
+10. Optional validated Slack and STARTTLS email adapters; delivery is best effort and visible through integration status. Defaults require no external account.
+11. Local Compose and native setup paths; separate least-privilege Kubernetes examples; CI for tests/build/configuration/container checks.
 
-### 1.1 Purpose
-This document defines the functional and non-functional requirements for AutoHealOps — an AI-powered Kubernetes self-healing platform.
+## Acceptance evidence
 
-### 1.2 Scope
-AutoHealOps monitors Kubernetes clusters, detects anomalies using ML models, predicts failures, and automatically performs healing actions without human intervention.
+Use `docs/validation.md`, automated tests and real screenshots. Synthetic model metrics are not real-world validation. A parsed manifest is not a deployed cluster. An accepted rollout is not proof of restored application metrics. A simulation is never a real repair.
 
-### 1.3 Definitions
-- **Anomaly**: Abnormal metric behavior deviating from baseline
-- **Self-Healing**: Automated recovery from detected failures
-- **LSTM**: Long Short-Term Memory neural network for time-series
-- **Isolation Forest**: Unsupervised ML algorithm for anomaly detection
+## Planned enterprise scope
 
----
-
-## 2. System Overview
-
-```
-Input: Kubernetes Metrics (CPU, Memory, Network, Pod status)
-Process: Anomaly Detection → Failure Prediction → Healing Decision
-Output: Automated recovery actions + Dashboard alerts
-```
-
----
-
-## 3. Functional Requirements
-
-### 3.1 AI Fault Detection Engine
-- FR-01: System SHALL collect metrics every 15 seconds via Prometheus
-- FR-02: System SHALL apply Isolation Forest for real-time anomaly detection
-- FR-03: System SHALL flag anomalies with severity: LOW / MEDIUM / HIGH / CRITICAL
-- FR-04: System SHALL store all anomaly records in MongoDB
-
-### 3.2 Predictive Failure System
-- FR-05: System SHALL use LSTM to forecast metrics for next 30 minutes
-- FR-06: System SHALL output: failure probability (0-1) and time-to-failure (minutes)
-- FR-07: System SHALL retrain model weekly on latest data
-
-### 3.3 Self-Healing Mechanism
-- FR-08: System SHALL restart crashed pods automatically within 30 seconds
-- FR-09: System SHALL scale deployments when CPU > 80% for 3 consecutive minutes
-- FR-10: System SHALL reschedule pods when node health drops below threshold
-- FR-11: System SHALL log all healing actions with timestamps
-
-### 3.4 Monitoring Dashboard
-- FR-12: Dashboard SHALL display real-time cluster health score (0-100)
-- FR-13: Dashboard SHALL show live graphs updated via WebSocket
-- FR-14: Dashboard SHALL display active alerts and AI predictions
-- FR-15: Dashboard SHALL provide incident log with filtering
-
-### 3.5 Alerting System
-- FR-16: System SHALL send email alerts for CRITICAL anomalies
-- FR-17: System SHALL send Slack notifications for HIGH/CRITICAL events
-- FR-18: Alert thresholds SHALL be configurable via environment variables
-
----
-
-## 4. Non-Functional Requirements
-
-| Category | Requirement |
-|----------|-------------|
-| Performance | API response < 200ms for 95th percentile |
-| Availability | 99.9% uptime for monitoring service |
-| Scalability | Support clusters up to 100 nodes |
-| Security | JWT auth, RBAC, encrypted secrets |
-| Latency | Anomaly detection < 5 seconds from metric collection |
-| Storage | Metrics retained for 30 days |
-
----
-
-## 5. System Constraints
-- Requires Kubernetes 1.24+
-- Python 3.9+ for AI engine
-- Minimum 4GB RAM for Minikube
-- Docker and Docker Compose required for local development
-
----
-
-## 6. Assumptions
-- Prometheus is the primary metrics source
-- Users have basic Kubernetes knowledge for setup
-- Internet connectivity for Docker image pulls
+Distributed control-plane locks/leases, multi-cluster authorization, durable background queues/event broker, SSO, calibrated failure prediction, immutable external audit retention, a durable notification outbox, production load/chaos testing, and automated backup orchestration remain future work. Backend horizontal scaling is intentionally unsupported in this single-process release.

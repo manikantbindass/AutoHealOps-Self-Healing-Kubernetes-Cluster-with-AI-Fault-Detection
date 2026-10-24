@@ -1,45 +1,116 @@
-import React, { useState, useEffect } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-
-const MOCK = [
-  { metric: 'CPU', probability: 0.78, ttf: 12 },
-  { metric: 'Memory', probability: 0.45, ttf: 35 },
-  { metric: 'Network', probability: 0.22, ttf: 90 },
-  { metric: 'Pod Health', probability: 0.61, ttf: 20 },
-];
-
+import React, { useState } from "react";
+import { Panel, Filters, Empty, date } from "../components/UI";
+import AlertBadge from "../components/AlertBadge";
+import { usePlatform } from "../hooks/useMetrics";
 export default function PredictionsPage() {
-  const [predictions] = useState(MOCK);
-
+  const { data } = usePlatform();
+  const [search, setSearch] = useState(""),
+    [filter, setFilter] = useState("");
+  const p = data.predictions;
+  const rows = (data.anomalies?.items || []).filter(
+    (x) =>
+      (!filter || x.severity === filter) &&
+      `${x.target} ${x.explanation}`
+        .toLowerCase()
+        .includes(search.toLowerCase()),
+  );
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-white">🧠 AI Failure Predictions</h1>
-      <p className="text-gray-400 text-sm">LSTM model predicts failure probability and estimated time-to-failure.</p>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {predictions.map(p => (
-          <div key={p.metric} className="glass border border-white/10 p-5 rounded-xl">
-            <p className="text-gray-400 text-xs uppercase tracking-widest">{p.metric}</p>
-            <p className="text-3xl font-bold font-mono mt-2" style={{ color: p.probability > 0.7 ? '#ef4444' : p.probability > 0.4 ? '#f59e0b' : '#10b981' }}>
-              {(p.probability * 100).toFixed(0)}%
+    <>
+      <h1>AI fault intelligence</h1>
+      <p className="page-description">
+        Explainable anomaly detection, with honest model and forecast
+        limitations.
+      </p>
+      <div className="two-col">
+        <Panel title="Anomaly detection" note="MODEL IDENTITY">
+          <div className="info-body">
+            <h3>
+              {data.integrations?.services?.ai || "Checking availability"}
+            </h3>
+            <p>
+              Isolation Forest when a compatible artifact is loaded; transparent
+              threshold rules otherwise. Scores describe deviation, never
+              probability of failure.
             </p>
-            <p className="text-gray-400 text-xs mt-1">Failure probability</p>
-            <p className="text-cyan-400 text-sm mt-2 font-mono">⏱ ~{p.ttf} min</p>
-            <p className="text-gray-500 text-xs">Time to failure</p>
           </div>
+        </Panel>
+        <Panel title="Metric forecast" note={p?.model || "UNAVAILABLE"}>
+          <div className="info-body">
+            {p?.available ? (
+              <>
+                <div className="forecast-values">
+                  <span>
+                    <strong>{(p.forecast.cpu_usage * 100).toFixed(1)}%</strong>
+                    CPU forecast
+                  </span>
+                  <span>
+                    <strong>
+                      {(p.forecast.memory_usage * 100).toFixed(1)}%
+                    </strong>
+                    Memory forecast
+                  </span>
+                </div>
+                <p>
+                  Horizon {p.horizon_seconds.toFixed(0)} seconds · refreshed{" "}
+                  {date(p.data_freshness)}
+                </p>
+                <p>
+                  Chronological holdout MAE: trend{" "}
+                  {p.evaluation.linear_mae_fraction.toFixed(4)} / persistence{" "}
+                  {p.evaluation.persistence_mae_fraction.toFixed(4)}.
+                </p>
+              </>
+            ) : (
+              <p>{p?.reason || "Loading forecast…"}</p>
+            )}
+            <small>
+              No calibrated failure probability, time-to-failure, or confidence
+              is available.
+            </small>
+          </div>
+        </Panel>
+      </div>
+      <Filters
+        {...{ search, setSearch, filter, setFilter }}
+        options={["critical", "high", "low"]}
+      />
+      <Panel title="Detection evidence" note="LATEST 200">
+        {rows.map((x) => (
+          <article className="record" key={x.id}>
+            <div className="record-top">
+              <AlertBadge severity={x.severity} />
+              <span>
+                {x.source} · {x.model_version}
+              </span>
+              <time>{date(x.timestamp)}</time>
+            </div>
+            <h3>{x.target}</h3>
+            <p>{x.explanation}</p>
+            <div className="evidence">
+              {x.observations.map((o) => (
+                <div key={o.feature}>
+                  <span>{o.feature}</span>
+                  <strong>{o.value}</strong>
+                  <small>Threshold {o.baseline}</small>
+                </div>
+              ))}
+            </div>
+            <small>
+              Decision score:{" "}
+              {x.anomaly_score == null
+                ? "not applicable (rules)"
+                : x.anomaly_score.toFixed(4)}{" "}
+              · Correlation {x.correlation_id}
+            </small>
+          </article>
         ))}
-      </div>
-      <div className="glass border border-white/10 p-5 rounded-xl">
-        <h3 className="text-sm font-semibold text-gray-300 mb-4">Failure Probability by Component</h3>
-        <ResponsiveContainer width="100%" height={240}>
-          <BarChart data={predictions}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-            <XAxis dataKey="metric" tick={{ fill: '#6b7280', fontSize: 12 }} />
-            <YAxis domain={[0, 1]} tick={{ fill: '#6b7280', fontSize: 12 }} />
-            <Tooltip formatter={v => `${(v*100).toFixed(0)}%`} contentStyle={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }} />
-            <Bar dataKey="probability" fill="#00fff0" radius={[4,4,0,0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
+        {!rows.length && (
+          <Empty>
+            No anomalies recorded. Use the scenario lab to generate a
+            transparent detection.
+          </Empty>
+        )}
+      </Panel>
+    </>
   );
 }

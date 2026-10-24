@@ -1,42 +1,65 @@
-import React, { useState, useEffect } from 'react';
-import AlertBadge from '../components/AlertBadge';
-import { apiService } from '../services/api';
-
-const MOCK_ALERTS = [
-  { _id: '1', severity: 'CRITICAL', message: 'CPU usage spiked to 94%', timestamp: new Date().toISOString(), status: 'open' },
-  { _id: '2', severity: 'HIGH', message: 'Pod autohealops-backend-xyz restarted 8 times', timestamp: new Date(Date.now()-60000).toISOString(), status: 'open' },
-  { _id: '3', severity: 'MEDIUM', message: 'Network latency > 450ms for 5 minutes', timestamp: new Date(Date.now()-300000).toISOString(), status: 'acknowledged' },
-  { _id: '4', severity: 'LOW', message: 'Memory usage at 72%', timestamp: new Date(Date.now()-600000).toISOString(), status: 'resolved' },
-];
-
+import React, { useState } from "react";
+import { Panel, Filters, Empty, date } from "../components/UI";
+import AlertBadge from "../components/AlertBadge";
+import { usePlatform } from "../hooks/useMetrics";
 export default function AlertsPage() {
-  const [alerts, setAlerts] = useState(MOCK_ALERTS);
-
-  useEffect(() => {
-    apiService.getAlerts().then(r => { if (r.data?.length) setAlerts(r.data); }).catch(() => {});
-  }, []);
-
+  const { data, mutate, busy } = usePlatform();
+  const [search, setSearch] = useState(""),
+    [filter, setFilter] = useState("");
+  const rows = (data.alerts?.items || []).filter(
+    (x) =>
+      (!filter || x.severity === filter) &&
+      `${x.message} ${x.target} ${x.status}`
+        .toLowerCase()
+        .includes(search.toLowerCase()),
+  );
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-white">🚨 Active Alerts</h1>
-      <div className="space-y-3">
-        {alerts.map(alert => (
-          <div key={alert._id} className="glass border border-white/10 p-4 rounded-xl flex items-start justify-between gap-4 fade-in-up">
-            <div className="flex items-start gap-3">
-              <AlertBadge severity={alert.severity} />
-              <div>
-                <p className="text-white text-sm font-medium">{alert.message}</p>
-                <p className="text-gray-500 text-xs mt-1">{new Date(alert.timestamp).toLocaleString()}</p>
-              </div>
+    <>
+      <h1>Alerts & incidents</h1>
+      <p className="page-description">
+        Triage detections, acknowledge ownership, and track resolution.
+      </p>
+      <Filters
+        {...{ search, setSearch, filter, setFilter }}
+        options={["critical", "high", "medium", "low"]}
+      />
+      <Panel
+        title="Incident history"
+        note={`${rows.length} matching records · latest 200`}
+      >
+        {rows.map((x) => (
+          <article className="record" key={x.id}>
+            <div className="record-top">
+              <AlertBadge severity={x.severity} />
+              <span className="mono muted">{date(x.timestamp)}</span>
+              <AlertBadge severity={x.status} />
             </div>
-            <span className={`text-xs px-2 py-0.5 rounded-full border ${
-              alert.status === 'open' ? 'border-red-500/40 text-red-400' :
-              alert.status === 'acknowledged' ? 'border-yellow-500/40 text-yellow-400' :
-              'border-green-500/40 text-green-400'
-            }`}>{alert.status}</span>
-          </div>
+            <h3>{x.target}</h3>
+            <p>{x.message}</p>
+            <small>Correlation: {x.correlation_id}</small>
+            <div className="record-actions">
+              <button
+                disabled={busy || x.status !== "open"}
+                onClick={() => mutate(`alerts/${x.id}/acknowledge`)}
+              >
+                Acknowledge
+              </button>
+              <button
+                disabled={busy || x.status === "resolved"}
+                onClick={() => mutate(`alerts/${x.id}/resolve`)}
+              >
+                Resolve incident
+              </button>
+            </div>
+          </article>
         ))}
-      </div>
-    </div>
+        {!rows.length && (
+          <Empty>
+            No incidents match. Inject a fault in the scenario lab to test the
+            workflow.
+          </Empty>
+        )}
+      </Panel>
+    </>
   );
 }

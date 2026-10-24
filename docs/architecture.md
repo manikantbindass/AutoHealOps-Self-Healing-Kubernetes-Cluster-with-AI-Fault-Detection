@@ -1,117 +1,45 @@
-# 🏗️ AutoHealOps — System Architecture
+# AutoHealOps 2.0 architecture
 
-## Overview
+The baseline was React 18/CRA + FastAPI with MongoDB, an Isolation Forest, and an untrained LSTM predictor. The upgrade replaces the unsupported CRA build/test toolchain with Vite/Vitest after an actual audit found inherited security vulnerabilities. It retains React Router, Axios, Recharts, Lucide, FastAPI and Kubernetes Python client. It replaces unsupported claims and unsafe mutation paths with explicit, testable boundaries.
 
-AutoHealOps follows a **microservices architecture** with 5 core services communicating via REST APIs and WebSockets, all orchestrated on Kubernetes.
-
----
-
-## Component Diagram
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     AutoHealOps Platform                         │
-│                                                                   │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────┐   │
-│  │   Frontend    │    │   Backend    │    │    AI Engine      │   │
-│  │  React +      │◄──►│   FastAPI    │◄──►│  Python          │   │
-│  │  TailwindCSS  │    │  WebSockets  │    │  Isolation Forest │   │
-│  │  Port: 3000   │    │  Port: 8000  │    │  LSTM Model       │   │
-│  └──────────────┘    └──────┬───────┘    └──────────────────┘   │
-│                              │                                    │
-│                    ┌─────────▼─────────┐                         │
-│                    │     MongoDB        │                         │
-│                    │   Metrics & Logs   │                         │
-│                    │   Port: 27017      │                         │
-│                    └─────────┬─────────┘                         │
-│                              │                                    │
-│  ┌──────────────┐    ┌───────▼──────────┐                       │
-│  │   Grafana     │    │   Prometheus      │                       │
-│  │  Port: 3001   │◄───│   Port: 9090      │                       │
-│  └──────────────┘    └───────┬───────────┘                       │
-│                              │ Scrapes metrics                    │
-│                    ┌─────────▼─────────────────┐                 │
-│                    │     Kubernetes Cluster      │                 │
-│                    │  ┌────────┐  ┌──────────┐  │                 │
-│                    │  │  Pods  │  │  Nodes   │  │                 │
-│                    │  └────────┘  └──────────┘  │                 │
-│                    └───────────────────────────┘                  │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+  UI[React operations console] -->|REST + authenticated WS| API[FastAPI /api/v1]
+  API --> STORE[(SQLite demo or MongoDB)]
+  COLLECT[Single bounded collector] --> API
+  COLLECT -->|explicit demo| DEMO[Deterministic scenarios]
+  COLLECT -->|live only| PROM[Prometheus + exporters]
+  COLLECT --> AI[Isolation Forest or labelled rules]
+  API --> POLICY[Pause / approval / dedupe / limits]
+  POLICY -->|demo| SIM[Simulated recovery]
+  POLICY -->|live + opt in| K8S[Namespace-scoped Kubernetes API]
+  API --> NOTIFY[Optional Slack / STARTTLS email]
+  PROM2[Platform Prometheus] -->|scrape /telemetry| API
+  GRAF[Provisioned Grafana] --> PROM2
 ```
 
----
+## Runtime and data
 
-## Data Flow
+One API worker owns one collection loop and at most one remediation execution. A single browser provider shares REST state and one reconnecting WebSocket among all eight views. Slow clients are removed rather than blocking the collector indefinitely. No Kafka is needed at this scale. Notifications are optional, timeout-bound and best effort, not a durable delivery queue.
 
-```
-1. Kubernetes metrics → Prometheus (every 15s)
-2. Prometheus → AI Engine (pull every 30s)
-3. AI Engine → Anomaly detected? → Backend API
-4. Backend API → MongoDB (store) + Frontend (WebSocket push)
-5. Backend API → Self-Healing Script (if CRITICAL)
-6. Self-Healing Script → Kubernetes API (restart/scale)
-7. Backend API → Email/Slack (alert)
-```
+Native demo stores JSON records in SQLite WAL. Compose defaults to MongoDB in a private container network with a persistent volume. MongoDB uses unique `(kind,id)`, time and TTL indexes; startup pings with five bounded retries and the driver reconnects after interruptions. SQLite prunes seven-day records and caps total records at 20,000. Mongo retention defaults to seven days; API queries inspect at most 1,000 recent records per kind and return up to 200 per page. The telemetry retention window is configurable to 1–90 days. Workflow records are retained to the same deadline: longer compliance retention needs a separate immutable audit archive.
 
----
+Each anomaly opens one deduplicated alert until resolved. An anomaly, alert, recommendation and audit history share a correlation ID. Incident acknowledgement/resolution is operator driven. Demo reset restores healthy metrics and resolves active demo incidents without erasing history. CPU, memory and latency change deterministically by sample index, not wall-clock random numbers. Before/after values are captured at execution.
 
-## Technology Stack
+Live inventory requires only namespace-scoped pods and deployments. It does not claim cluster-wide node visibility. Prometheus queries normalize CPU/memory against configured resource limits; kube-state-metrics, kubelet/cAdvisor and instrumented request histograms are required. Missing exporters produce null measurements while available CPU/memory/restart/latency data is preserved. Incomplete feature vectors use transparent rules on available values; ML and complete-sequence forecasting are withheld. Missing values never become zero or random fallback. Namespace aggregate anomalies create alerts, but cannot identify which deployment to mutate; an operator must select a managed target.
 
-| Layer | Technology | Purpose |
-|-------|-----------|----------|
-| Frontend | React.js + TailwindCSS | Dashboard UI |
-| Charts | Chart.js / Recharts | Metric visualization |
-| Backend | FastAPI + WebSockets | REST API + realtime |
-| AI Engine | Python + Scikit-learn + TensorFlow | ML models |
-| Database | MongoDB | Metrics & incident logs |
-| Metrics | Prometheus | Time-series collection |
-| Visualization | Grafana | Ops dashboard |
-| Orchestration | Kubernetes (Minikube) | Container orchestration |
-| Messaging | Kafka | Event streaming |
-| Auth | JWT | API security |
-| Deployment | Docker Compose | Local dev setup |
+## Remediation trust boundary
 
----
+Local startup is dry-run, manually approved and paused. Demo always simulates, even if dry-run is changed. Live execution additionally requires `MODE=live`, strong credentials, MongoDB, an authorized service account, a namespace match, and `autohealops.io/managed=true` on the target Deployment. No shell, pod deletion, node drain, namespace deletion, or data-volume operation exists in the control plane.
 
-## AI Models
+Allowed mutations: Deployment rollout restart and scaling between 1 and the configured maximum (default 5). The state machine is recommended → approved → executing → simulated/dry_run/succeeded/failed. Repeated completed requests are idempotent. Pending requests deduplicate by action/namespace/target/replicas. One attempt per action, 300-second target cooldown, ten operations per hour, and one operation at a time limit recovery loops. A restarted process marks interrupted executions failed, never automatically replays them. Kubernetes API calls time out at five seconds; rollout verification waits at most 45 seconds, checking observed generation and updated/available replicas. Metric recovery remains a subsequent telemetry observation, not implied by API acceptance.
 
-### Model 1: Isolation Forest (Anomaly Detection)
-```
-Input:  [cpu_usage, memory_usage, pod_restarts, network_latency]
-Output: anomaly_score (-1 = anomaly, 1 = normal)
-Train:  Unsupervised on 30 days of historical metrics
-```
+Automatic rollout execution requires startup `ALLOW_AUTOMATIC=true`, the automatic policy, and operator resume. Scaling always requires explicit approval. Emergency pause prevents new operations; it cannot undo a mutation already accepted by Kubernetes. Do not grant this role access to production namespaces by default. The previous host kubeconfig mount and standalone autonomous healer are removed.
 
-### Model 2: LSTM (Failure Prediction)
-```
-Input:  Time-series sequence (last 60 data points, 4 features)
-Output: [failure_probability, minutes_to_failure]
-Train:  Supervised on labeled failure events
-Window: 60 timesteps × 4 features
-```
+## Growth and limitations
 
----
+The API is intentionally single-process. Do not increase backend replicas/workers: in-memory lock/pause/cooldown scheduling would not coordinate across instances. Before horizontal scaling, separate collection/execution workers, implement durable distributed leases/atomic action claims and shared event delivery, and add cluster-specific authorization. Multi-cluster operations, HA, durable notifications, calibrated failure prediction, SSO and immutable external audit storage are planned, not implemented.
 
-## Healing Decision Logic
+MongoDB operations are synchronous and bounded by driver timeouts; high-volume ingestion should move to a dedicated async persistence layer. Dashboard history is capped to the latest 200 samples. Model artifacts must be trusted local files because joblib deserialization is executable. Secrets stay in startup environment/secret references, never settings responses. Local Compose binds public ports to loopback and does not publish MongoDB; production must add Mongo authentication, encrypted transport, private networking, ingress TLS, backups and central secrets management.
 
-```python
-if anomaly_score == -1:
-    if metric == "pod_restarts" and value > 5:
-        action = "restart_pod"
-    elif metric == "cpu_usage" and value > 0.9:
-        action = "scale_deployment"
-    elif metric == "memory_usage" and value > 0.85:
-        action = "scale_deployment"
-    elif node_health < 0.3:
-        action = "reschedule_pods"
-```
-
----
-
-## Security Architecture
-
-- **Network Policies**: Restrict pod-to-pod communication
-- **RBAC**: Kubernetes roles with least-privilege access
-- **JWT**: 24-hour token expiry, RS256 signing
-- **Secrets**: Kubernetes Secrets for DB credentials, API keys
-- **TLS**: Ingress with cert-manager for HTTPS
+Automatic unapproved execution is restricted to detector-originated demo recommendations. Live actions and operator-created recommendations require explicit approval because live aggregate telemetry does not provide workload-level attribution.

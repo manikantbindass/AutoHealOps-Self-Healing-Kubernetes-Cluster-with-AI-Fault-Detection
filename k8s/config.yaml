@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: autohealops
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: autohealops-config
+  namespace: autohealops
+data:
+  MODE: demo
+  ENVIRONMENT: development
+  DRY_RUN: 'true'
+  ALLOW_AUTOMATIC: 'false'
+  HEALING_MODE: manual
+  NAMESPACE: autohealops
+  SQLITE_PATH: /app/data/autohealops.sqlite
+  AI_URL: http://ai-engine:8001
+  PROMETHEUS_URL: http://prometheus:9090
+  ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: autohealops-data
+  namespace: autohealops
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
