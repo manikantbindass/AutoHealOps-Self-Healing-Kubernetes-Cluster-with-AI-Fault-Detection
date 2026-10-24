@@ -4,6 +4,12 @@
 </p>
 
 
+<p align="center">
+  <strong>Public demo:</strong> <a href="https://autohealops.vercel.app">Open AutoHealOps</a><br />
+  <strong>Login / username:</strong> Not required &nbsp;|&nbsp; <strong>Password:</strong> Not required<br />
+  <sub>Anyone can explore the browser simulation. No account or credentials needed.</sub>
+</p>
+
 ## AutoHealOps 2.0
 
 **Infrastructure intelligence. Explainable faults. Guarded recovery.**
