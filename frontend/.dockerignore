@@ -1,0 +1,9 @@
+node_modules
+build
+.env
+.git
+*.log
+__pycache__
+.pytest_cache
+*.sqlite*
+artifacts
