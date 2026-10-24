@@ -108,7 +108,7 @@ function Shell() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <Link to="/" className="brand">
+        <Link to="/" className="brand" aria-label="AutoHealOps overview">
           <div className="brand-mark">
             <Hexagon size={29} />
             <Activity size={16} />
@@ -128,14 +128,14 @@ function Shell() {
         <div className="nav-label">PLATFORM</div>
         <nav aria-label="Main navigation">
           {pages.slice(0, 5).map(([url, label, Icon]) => (
-            <NavLink end to={url} key={url}>
+            <NavLink end to={url} key={url} aria-label={label} title={label}>
               <Icon size={18} />
               <span>{label}</span>
             </NavLink>
           ))}
           <div className="nav-label">OPERATIONS</div>
           {pages.slice(5).map(([url, label, Icon]) => (
-            <NavLink end to={url} key={url}>
+            <NavLink end to={url} key={url} aria-label={label} title={label}>
               <Icon size={18} />
               <span>{label}</span>
               {url === "/alerts" && o?.active_alerts > 0 && (
