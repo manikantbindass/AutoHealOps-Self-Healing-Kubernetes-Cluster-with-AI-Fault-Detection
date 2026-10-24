@@ -38,9 +38,9 @@ export default function SettingsPage() {
               </select>
             </label>
             <p>
-              Automatic execution requires ALLOW_AUTOMATIC=true at startup.
-              Scaling always requires approval. Dry-run changes require an
-              environment update and restart.
+              {o.hosting === "browser-showcase"
+                ? "Public demo policy is stored in this browser session. All actions are simulated. Automatic execution and infrastructure connections are disabled."
+                : "Automatic execution requires ALLOW_AUTOMATIC=true at startup. Scaling always requires approval. Dry-run changes require an environment update and restart."}
             </p>
             <button className="primary" disabled={busy}>
               Save policy
@@ -66,9 +66,9 @@ export default function SettingsPage() {
               <strong>{o.policy.namespace}</strong>
             </div>
             <p>
-              Service URLs, credentials and mode are configured through
-              environment variables. Secret values are never returned to this
-              interface.
+              {o.hosting === "browser-showcase"
+                ? "This public showcase has no backend database, credentials or cluster connection. Use the repository's local setup for FastAPI, trained ML and persistent storage."
+                : "Service URLs, credentials and mode are configured through environment variables. Secret values are never returned to this interface."}
             </p>
           </div>
         </Panel>

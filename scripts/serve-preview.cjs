@@ -3,7 +3,7 @@ const http = require('http');
 const net = require('net');
 const fs = require('fs');
 const path = require('path');
-const root = path.resolve(__dirname, '../frontend/build');
+const root = path.resolve(__dirname, '..', process.env.PREVIEW_ROOT || 'frontend/build');
 const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.png':'image/png','.svg':'image/svg+xml','.json':'application/json','.ico':'image/x-icon'};
 const server = http.createServer((req,res) => {
   if (req.url.startsWith('/api/')) {

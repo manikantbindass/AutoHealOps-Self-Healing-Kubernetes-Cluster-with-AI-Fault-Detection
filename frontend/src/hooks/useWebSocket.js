@@ -1,10 +1,22 @@
 import { useEffect, useState } from "react";
-import { websocketUrl } from "../services/api";
+import { PUBLIC_DEMO, websocketUrl } from "../services/api";
 
 export function useWebSocket(onUpdate, enabled = true) {
   const [status, setStatus] = useState("connecting");
   useEffect(() => {
     if (!enabled) return;
+    if (PUBLIC_DEMO) {
+      let cancelled = false,
+        unsubscribe;
+      setStatus("browser simulation");
+      import("../services/browserDemo").then((module) => {
+        if (!cancelled) unsubscribe = module.subscribeDemo(onUpdate);
+      });
+      return () => {
+        cancelled = true;
+        unsubscribe?.();
+      };
+    }
     let stopped = false,
       socket,
       timer,
