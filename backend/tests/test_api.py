@@ -362,3 +362,22 @@ def test_missing_latency_does_not_hide_available_live_metrics(client, monkeypatc
     assert p.current["network_latency"] is None
     assert p.store.list("alerts")[0]["target"] == "namespace aggregate"
     assert p.store.list("actions") == []
+
+
+def test_invalid_forecast_history_is_not_reported_as_engine_outage(client, monkeypatch):
+    import httpx
+    from services import platform as platform_module
+
+    original = httpx.AsyncClient
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(422, json={"detail": "Sample cadence invalid"})
+    )
+    monkeypatch.setattr(
+        platform_module.httpx,
+        "AsyncClient",
+        lambda **kwargs: original(transport=transport, trust_env=False),
+    )
+    result = client.get("/api/v1/predictions").json()
+    assert result["available"] is False
+    assert result["engine_available"] is True
+    assert "failed validation" in result["reason"]

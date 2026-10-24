@@ -386,6 +386,15 @@ def create_app(settings=None):
                     "source": cfg.mode,
                     "data_freshness": samples[-1]["timestamp"],
                 }
+        except httpx.HTTPStatusError as exc:
+            return {
+                "available": False,
+                "engine_available": True,
+                "model": "linear-trend-baseline",
+                "reason": "Forecast withheld: telemetry cadence or sequence failed validation"
+                if exc.response.status_code == 422
+                else f"AI service returned HTTP {exc.response.status_code}; forecast unavailable",
+            }
         except Exception:
             return {
                 "available": False,
