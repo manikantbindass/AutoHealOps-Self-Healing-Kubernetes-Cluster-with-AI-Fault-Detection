@@ -20,6 +20,7 @@ const path=require('path');
   assert((await page.locator('.policy-bar').innerText()).includes('automatic'));
   assert.equal(await page.getByRole('button',{name:'Approve action',exact:true}).count(),0);
   await page.screenshot({path:path.join(__dirname,'../docs/screenshots/autohealops-autonomous.png'),fullPage:true});
+  await page.locator('article.record').first().screenshot({path:path.join(__dirname,'../docs/screenshots/autohealops-autonomous-result.png')});
   await page.reload({waitUntil:'networkidle'});
   await page.getByRole('button',{name:'Resume healing',exact:true}).waitFor();
   await page.getByRole('link',{name:'Settings & integrations',exact:true}).click();

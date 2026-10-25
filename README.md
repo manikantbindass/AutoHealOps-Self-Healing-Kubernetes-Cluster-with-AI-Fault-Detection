@@ -16,8 +16,8 @@ New to AutoHealOps or Kubernetes? Start with these plain-language documents:
 
 | Document | What you will learn |
 | --- | --- |
-| [PDF project guide — 15 pages](docs/overview/AutoHealOps-Plain-Language-Guide.pdf) | Abstract, purpose, why the project is needed, everyday terminology, architecture, detection and recovery workflow, safeguards, a worked example, setup and limitations. |
-| [PowerPoint presentation — 20 slides](docs/overview/AutoHealOps-Project-Explained.pptx) | A presentation of the same ideas, with actual dashboard screenshots, a demo walkthrough and detailed presenter notes. Download the file to view the slides and notes. |
+| [PDF project guide — 18 pages](docs/overview/AutoHealOps-Plain-Language-Guide.pdf) | Abstract, purpose, why the project is needed, everyday terminology, architecture, detection and recovery workflow, safeguards, a worked example, autonomous runbooks, setup, verification and limitations. |
+| [PowerPoint presentation — 25 slides](docs/overview/AutoHealOps-Project-Explained.pptx) | A presentation of the same ideas, with actual dashboard screenshots, a demo walkthrough and detailed presenter notes. Download the file to view the slides and notes. |
 
 Both explain the difference between the public browser simulation, the full local system and the optional Kubernetes integration. No login or password is needed for the [public demo](https://autohealops.vercel.app).
 
