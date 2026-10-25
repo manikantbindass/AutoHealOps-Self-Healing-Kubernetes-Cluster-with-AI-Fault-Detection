@@ -101,7 +101,7 @@ jobs:
         for attempt in $(seq 1 30); do curl -fsS http://127.0.0.1:13001 >/dev/null
         && break; sleep 1; done
 
-        node ../scripts/e2e-public.cjs'
+        node ../scripts/e2e-public.cjs && node ../scripts/e2e-autonomous.cjs'
       env:
         PREVIEW_ROOT: frontend/build-public
         DASHBOARD_PORT: '13001'

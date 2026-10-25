@@ -19,7 +19,7 @@ export default function HealingPage() {
     <>
       <h1>Healing operations</h1>
       <p className="page-description">
-        Review evidence. Approve a bounded action. Verify the outcome.
+        Review evidence, follow autonomous recovery or approve a bounded action.
       </p>
       <div className="policy-bar">
         <div>
@@ -126,8 +126,12 @@ export default function HealingPage() {
                 : JSON.stringify(x.result)}
             </p>
             <small>
-              Approved by {x.approved_by || "nobody"} · attempts {x.attempts}/1
-              · correlation {x.correlation_id}
+              {x.approved_by
+                ? `Approved by ${x.approved_by}`
+                : x.attempts > 0
+                  ? "Authorized by automatic policy"
+                  : "Awaiting authorization"}{" "}
+              · attempts {x.attempts}/1 · correlation {x.correlation_id}
             </small>
             {x.before && (
               <div className="evidence">

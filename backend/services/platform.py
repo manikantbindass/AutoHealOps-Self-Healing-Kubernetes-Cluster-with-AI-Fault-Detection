@@ -78,6 +78,9 @@ class Platform:
         }
         self.last_error = None
         self.worker_updated = None
+        from services.autonomy import Autonomy
+
+        self.autonomy = Autonomy(self)
         saved = self.store.list("demo_state")
         if saved and settings.mode == "demo":
             self.scenario = saved[0]["scenario"]
@@ -378,12 +381,17 @@ class Platform:
                 return item  # idempotent replay
             if self.paused or self.settings.healing_mode == "recommendation":
                 raise HTTPException(409, "Healing paused or recommendation-only")
+            if item.get("autonomous") and not self.autonomy.permits(item):
+                raise HTTPException(409, "Autonomous evidence or policy is no longer valid")
             if item["status"] != "approved" and not (
-                self.settings.healing_mode == "automatic"
-                and self.settings.allow_automatic
-                and item["action"] == "restart_deployment"
-                and item["actor"] == "detector"
-                and item["simulated"]
+                self.autonomy.permits(item)
+                or (
+                    self.settings.healing_mode == "automatic"
+                    and self.settings.allow_automatic
+                    and item["action"] == "restart_deployment"
+                    and item["actor"] == "detector"
+                    and item["simulated"]
+                )
             ):
                 raise HTTPException(409, "Explicit approval required")
             if item["attempts"] >= 1:
@@ -422,6 +430,12 @@ class Platform:
                 executed_at=now(),
                 before=self.current,
             )
+            if item.get("autonomous"):
+                item["before"] = item["evidence"]
+                self.store.put(
+                    "autonomous_state",
+                    dict(id=item["target"], timestamp=now(), latched=True, action_id=item["id"]),
+                )
             self.store.put("actions", item)
             self.audit(
                 actor,
@@ -457,13 +471,34 @@ class Platform:
                             item, self.settings.max_replicas
                         )
                     )
+                    if item.get("autonomous"):
+                        recovered = await self.autonomy.verify(item)
+                        result["telemetry_verified"] = True
+                        item["after"] = recovered
+                        for alert in self.store.list("alerts"):
+                            if alert.get("correlation_id") == item["correlation_id"]:
+                                alert.update(status="resolved", resolved_at=now())
+                                self.store.put("alerts", alert)
                     await self.sample()
-                    item.update(status="succeeded", result=result, after=self.current)
+                    item.update(status="succeeded", result=result)
+                    if not item.get("autonomous"):
+                        item["after"] = self.current
             except Exception as exc:
                 item.update(
                     status="failed",
                     result=f"{type(exc).__name__}: recovery not verified; inspect server logs",
                 )
+                if item.get("autonomous"):
+                    self.paused = True
+                    self.audit(
+                        "policy-engine",
+                        "autonomy_circuit_open",
+                        item["target"],
+                        "paused",
+                        "Recovery verification failed; operator investigation required",
+                        item["correlation_id"],
+                        "error",
+                    )
             self.store.put("actions", item)
             self.audit(
                 actor,
@@ -514,6 +549,9 @@ class Platform:
             max_actions_per_hour=10,
             retry_limit=1,
             namespace=self.settings.namespace,
+            autonomous_targets=self.settings.automatic_targets,
+            autonomous_confirmations=self.settings.automatic_confirmations,
+            autonomous_status=self.autonomy.status,
         )
 
     async def run(self):

@@ -1,4 +1,5 @@
-import { beforeEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
+afterEach(() => vi.useRealTimers());
 let demoRequest;
 beforeEach(async () => {
   sessionStorage.clear();
@@ -66,9 +67,9 @@ test("namespace, replica, automatic policy and arbitrary action boundaries are e
   await expect(
     demoRequest("put", "settings", {
       paused: false,
-      healing_mode: "automatic",
+      healing_mode: "unknown",
     }),
-  ).rejects.toThrow("manual");
+  ).rejects.toThrow("Choose");
   await expect(
     demoRequest("post", "demo/scenarios", { scenario: "delete" }),
   ).rejects.toThrow("Unknown");
@@ -80,4 +81,49 @@ test("reset resolves incidents and preserves history; duplicate scenarios dedupe
   await demoRequest("post", "demo/scenarios", { scenario: "reset" });
   expect((await demoRequest("get", "alerts")).items[0].status).toBe("resolved");
   expect((await demoRequest("get", "anomalies")).total).toBe(1);
+});
+
+test("automatic simulation confirms three samples then recovers without approval", async () => {
+  vi.useFakeTimers();
+  await demoRequest("put", "settings", {
+    paused: false,
+    healing_mode: "automatic",
+  });
+  await demoRequest("post", "demo/scenarios", { scenario: "cpu" });
+  expect((await demoRequest("get", "healing/actions")).items[0].status).toBe(
+    "recommended",
+  );
+  vi.setSystemTime(Date.now() + 5000);
+  await demoRequest("get", "overview");
+  expect((await demoRequest("get", "healing/actions")).items[0].status).toBe(
+    "recommended",
+  );
+  vi.setSystemTime(Date.now() + 5000);
+  const overview = await demoRequest("get", "overview");
+  const item = (await demoRequest("get", "healing/actions")).items[0];
+  expect(item.status).toBe("simulated");
+  expect(item.approved_by).toBeNull();
+  expect(item.attempts).toBe(1);
+  expect(overview.metrics.cpu_usage).toBeLessThan(0.8);
+  expect((await demoRequest("get", "alerts")).items[0].status).toBe("resolved");
+  vi.resetModules();
+  ({ demoRequest } = await import("./browserDemo"));
+  expect((await demoRequest("get", "settings")).paused).toBe(true);
+});
+
+test("automatic simulation keeps operator-created actions behind approval", async () => {
+  await demoRequest("put", "settings", {
+    paused: false,
+    healing_mode: "automatic",
+  });
+  const item = await demoRequest("post", "healing/actions", {
+    action: "restart_deployment",
+    namespace: "autohealops",
+    target: "api-gateway",
+    replicas: null,
+    rationale: "Operator selected this workload",
+  });
+  await expect(
+    demoRequest("post", `healing/actions/${item.id}/execute`),
+  ).rejects.toThrow("approval");
 });

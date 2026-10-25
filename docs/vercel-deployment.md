@@ -23,3 +23,7 @@ vercel deploy --prod --scope manikantkai-9844s-projects
 ```
 
 The root `.vercelignore` uploads frontend sources only and excludes dependencies, generated builds and private `.env`. GitHub Actions validates both the normal backend-connected build and the public-demo build; publishing is a deliberate Vercel deployment, not an implicit promise that every push automatically goes live.
+
+## Automatic simulation
+
+Settings now offers Autonomous recovery. Save it, resume healing, then inject a fault. Three browser samples trigger an automatic simulated recovery without per-action approval; the related incident resolves. Manual mode, emergency pause, cooldown and action budgets remain available. Reloading pauses healing and restores manual policy. This never connects to infrastructure. See [live autonomous runbooks](autonomous-recovery.md) for the separately configured backend.

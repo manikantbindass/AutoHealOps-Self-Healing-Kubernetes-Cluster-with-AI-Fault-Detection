@@ -16,8 +16,8 @@ New to AutoHealOps or Kubernetes? Start with these plain-language documents:
 
 | Document | What you will learn |
 | --- | --- |
-| [PDF project guide — 15 pages](docs/overview/AutoHealOps-Plain-Language-Guide.pdf) | Abstract, purpose, why the project is needed, everyday terminology, architecture, detection and recovery workflow, safeguards, a worked example, setup and limitations. |
-| [PowerPoint presentation — 20 slides](docs/overview/AutoHealOps-Project-Explained.pptx) | A presentation of the same ideas, with actual dashboard screenshots, a demo walkthrough and detailed presenter notes. Download the file to view the slides and notes. |
+| [PDF project guide — 18 pages](docs/overview/AutoHealOps-Plain-Language-Guide.pdf) | Abstract, purpose, why the project is needed, everyday terminology, architecture, detection and recovery workflow, safeguards, a worked example, autonomous runbooks, setup, verification and limitations. |
+| [PowerPoint presentation — 25 slides](docs/overview/AutoHealOps-Project-Explained.pptx) | A presentation of the same ideas, with actual dashboard screenshots, a demo walkthrough and detailed presenter notes. Download the file to view the slides and notes. |
 
 Both explain the difference between the public browser simulation, the full local system and the optional Kubernetes integration. No login or password is needed for the [public demo](https://autohealops.vercel.app).
 
@@ -33,7 +33,7 @@ AutoHealOps is a locally runnable operations console for exploring Kubernetes wo
 
 [![Open AutoHealOps on Vercel](https://img.shields.io/badge/Open_live_demo-autohealops.vercel.app-8faaff?style=for-the-badge&logo=vercel)](https://autohealops.vercel.app)
 
-**[Launch AutoHealOps →](https://autohealops.vercel.app)** · An interactive browser simulation with synthetic telemetry, transparent rule-based detections, approval and simulated recovery. Each visitor has an isolated browser session. No backend, trained ML model or Kubernetes cluster is connected to the public demo. The full FastAPI/ML/persistence workflow remains available through local setup below.
+**[Launch AutoHealOps →](https://autohealops.vercel.app)** · An interactive browser simulation with synthetic telemetry, transparent rule-based detections, manual or automatic simulated recovery. Each visitor has an isolated browser session. No backend, trained ML model or Kubernetes cluster is connected to the public demo. The full FastAPI/ML/persistence workflow remains available through local setup below.
 
 ![AutoHealOps running on Vercel](docs/screenshots/autohealops-vercel.png)
 
@@ -53,6 +53,10 @@ A genuine screenshot of the compiled React application running locally, with sim
 ![Mobile dashboard](docs/screenshots/autohealops-mobile.png)
 
 </details>
+
+## Autonomous recovery
+
+The opt-in controller can confirm workload-specific faults, add one replica for CPU pressure or perform a rollout restart for repeated container restarts, then verify rollout and fresh telemetry without a per-action approval. Exact targets, ownership labels, action limits and emergency pause remain enforced. Failed verification pauses healing. The public demo provides a separate automatic simulation. **[Read the runbooks, setup and validation limits](docs/autonomous-recovery.md).** Real-cluster acceptance remains pending in this environment.
 
 ## What works
 
@@ -155,6 +159,7 @@ docs/           architecture, API contract, models, operations, validation, scre
 |---|---|
 | MODE / ENVIRONMENT | demo / development; live/production enforce credentials |
 | JWT_SECRET / ADMIN_PASSWORD / VIEWER_PASSWORD | required strong signing/admin secrets outside developer demo; optional viewer account |
+| AUTOMATIC_TARGETS / AUTOMATIC_CONFIRMATIONS / AUTOMATIC_VERIFY_SECONDS | exact names / 3 distinct samples / 120-second verification window |
 | DRY_RUN / ALLOW_AUTOMATIC / HEALING_MODE | true / false / manual; startup authorization required for automatic |
 | NAMESPACE / MAX_REPLICAS | autohealops / 5; one authorization boundary |
 | COOLDOWN_SECONDS / POLL_SECONDS | 300 / 5 |
@@ -205,7 +210,7 @@ Read [security and operations](docs/security-operations.md) for trust boundaries
 
 Contributions should add focused regression coverage, preserve honest source labels and keep remediation safeguards explicit. Run the relevant checks and open a feature-branch PR. The original README claimed MIT, but the repository contains no license grant; this upgrade does not invent one. Obtain the author's permission before redistribution under a specific license.
 
-Automatic unapproved execution is restricted to detector-originated demo recommendations. Live actions and operator-created recommendations require explicit approval because live aggregate telemetry does not provide workload-level attribution.
+Opt-in [autonomous recovery](docs/autonomous-recovery.md) uses exact Deployment ownership, fresh workload measurements and confirmed runbooks for bounded CPU scale-up or rollout restart. Live automatic actions require exact startup targets and both managed/autonomous labels; operator-created actions still require approval. Namespace aggregate detections never choose a target.
 
 ---
 
