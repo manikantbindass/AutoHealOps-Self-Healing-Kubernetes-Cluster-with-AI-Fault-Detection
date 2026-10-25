@@ -33,15 +33,28 @@ export default function SettingsPage() {
                 <option value="recommendation">Recommendation only</option>
                 <option value="manual">Manual approval</option>
                 {o.policy.allow_automatic && (
-                  <option value="automatic">Automatic rollout restart</option>
+                  <option value="automatic">Autonomous recovery</option>
                 )}
               </select>
             </label>
             <p>
               {o.hosting === "browser-showcase"
-                ? "Public demo policy is stored in this browser session. All actions are simulated. Automatic execution and infrastructure connections are disabled."
-                : "Automatic execution requires ALLOW_AUTOMATIC=true at startup. Scaling always requires approval. Dry-run changes require an environment update and restart."}
+                ? "Automatic mode simulates recovery after three fault samples, without a per-action approval. Resume healing to begin. All actions stay in this browser session; reloading pauses healing."
+                : "Autonomous recovery requires ALLOW_AUTOMATIC=true, exact AUTOMATIC_TARGETS and opted-in Deployments. Confirmed CPU pressure can add one replica; repeated restarts can trigger a rollout restart. Other actions require approval. Dry-run changes require an environment update and restart."}
             </p>
+            {o.policy.autonomous_targets?.length > 0 && (
+              <p>
+                Autonomous targets: {o.policy.autonomous_targets.join(", ")}.
+                Confirmation samples: {o.policy.autonomous_confirmations}.
+              </p>
+            )}
+            {Object.entries(o.policy.autonomous_status || {}).map(
+              ([target, status]) => (
+                <p key={target}>
+                  <strong>{target}:</strong> {status}
+                </p>
+              ),
+            )}
             <button className="primary" disabled={busy}>
               Save policy
             </button>

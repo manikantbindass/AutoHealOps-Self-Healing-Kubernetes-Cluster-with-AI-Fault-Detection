@@ -21,3 +21,7 @@ MongoDB: take a consistent `mongodump` from a privileged maintenance environment
 Readiness checks storage and collector freshness; optional exporter/AI failures remain visible as degraded integrations. Mongo startup retries are bounded; operation failures return a 503 with request ID instead of silently dropping records. The API process owns collection, in-memory pause and action execution. Keep one backend worker and one backend replica. On restart healing pauses and interrupted actions become failed, requiring operator investigation. Production HA requires durable action claims, a distributed lease and shared event delivery before adding replicas.
 
 Rate limits, cooldown and locks protect one process only. No high-availability, production-load, disaster-recovery, external-notification or real-cluster validation was performed in this local environment. A passing synthetic test cannot establish production reliability.
+
+## Autonomous policy
+
+Automatic live actions require exact startup targets, both Deployment opt-in labels, workload-attributed fresh evidence and repeated confirmation. UID/generation/resource-version checks protect against changing targets. A failed verification pauses healing; a persisted per-target latch prevents repeated attempts for the sustained fault. No HPA may exist in an autonomous namespace. Manual requests still require approval. Removing `autohealops.io/autonomous=true` revokes live autonomous eligibility. See [runbooks and operator procedure](autonomous-recovery.md).

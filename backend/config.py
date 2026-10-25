@@ -23,6 +23,9 @@ class Settings(BaseModel):
     healing_mode: Literal["recommendation", "manual", "automatic"] = "manual"
     dry_run: bool = True
     allow_automatic: bool = False
+    automatic_targets: list[str] = []
+    automatic_confirmations: int = Field(default=3, ge=2, le=12)
+    automatic_verify_seconds: int = Field(default=120, ge=10, le=600)
     max_replicas: int = Field(default=5, ge=1, le=20)
     cooldown_seconds: int = Field(default=300, ge=1)
     poll_seconds: int = Field(default=5, ge=1, le=300)
@@ -30,6 +33,13 @@ class Settings(BaseModel):
 
     @model_validator(mode="after")
     def secure(self):
+        import re
+
+        if len(self.automatic_targets) > 20 or any(
+            not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", name)
+            for name in self.automatic_targets
+        ):
+            raise ValueError("AUTOMATIC_TARGETS must name at most 20 exact Deployments")
         if not self.origins:
             raise ValueError("At least one explicit browser Origin is required")
         for origin in self.origins:
@@ -62,6 +72,8 @@ class Settings(BaseModel):
             raise ValueError("Live mode requires MONGO_URI; SQLite is demo-only")
         if self.healing_mode == "automatic" and not self.allow_automatic:
             raise ValueError("Automatic healing requires ALLOW_AUTOMATIC=true")
+        if self.healing_mode == "automatic" and self.mode == "live" and not self.automatic_targets:
+            raise ValueError("Live automatic healing requires exact AUTOMATIC_TARGETS")
         return self
 
     @classmethod
@@ -71,4 +83,8 @@ class Settings(BaseModel):
         }
         if "origins" in values:
             values["origins"] = [x.strip() for x in values["origins"].split(",") if x.strip()]
+        if "automatic_targets" in values:
+            values["automatic_targets"] = [
+                x.strip() for x in values["automatic_targets"].split(",") if x.strip()
+            ]
         return cls(**values)

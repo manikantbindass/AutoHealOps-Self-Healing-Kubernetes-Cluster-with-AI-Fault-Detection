@@ -97,3 +97,7 @@ For live monitoring, provide a reachable authenticated MongoDB and a Prometheus 
 - Native package installation can require network access. Windows sandbox restrictions on temp directories may require `pytest --basetemp=data/test-backend` or running in a normal user terminal.
 
 Container builds, live Mongo/Kubernetes/Grafana runtime and actual notification delivery must be tested on a machine with those optional services. See `validation.md` for measured results rather than assuming all deployment profiles were executed.
+
+## Optional autonomous recovery
+
+For live automatic scale-up/restart, follow [the autonomous setup and acceptance checklist](autonomous-recovery.md). It requires exact `AUTOMATIC_TARGETS`, both Deployment labels, complete fresh owned-Pod telemetry and a namespace without HPAs. Start in dry-run and resume explicitly. The public website offers a separate browser-only automatic simulation.

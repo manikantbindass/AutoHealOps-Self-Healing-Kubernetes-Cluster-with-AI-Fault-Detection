@@ -88,7 +88,11 @@ def create_app(settings=None):
         await p.sample()
         p.audit("system", "startup", "platform", "ready", f"{cfg.mode} mode; healing paused")
         worker = asyncio.create_task(p.run())
+        autonomous_worker = asyncio.create_task(p.autonomy.run())
         yield
+        autonomous_worker.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await autonomous_worker
         worker.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await worker
@@ -420,7 +424,12 @@ def create_app(settings=None):
     def settings_update(body: PolicyInput, actor=Depends(admin)):
         if body.healing_mode == "automatic" and not cfg.allow_automatic:
             raise HTTPException(409, "Automatic mode requires startup ALLOW_AUTOMATIC=true")
+        if body.healing_mode == "automatic" and cfg.mode == "live" and not cfg.automatic_targets:
+            raise HTTPException(409, "Live automatic mode requires exact AUTOMATIC_TARGETS")
         p = platform()
+        p.autonomy.streaks.clear()
+        p.autonomy.evidence.clear()
+        p.autonomy.last_sample.clear()
         p.paused = body.paused
         cfg.healing_mode = body.healing_mode
         p.audit(

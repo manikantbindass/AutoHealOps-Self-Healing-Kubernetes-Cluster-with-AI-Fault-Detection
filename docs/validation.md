@@ -40,3 +40,11 @@ PR #1 merged after all checks passed; the original dashboard screenshot is verif
 - Real unauthenticated Edge/Playwright against the Vercel URL passed provenance, browser rules, fault/approval/recovery, all routes/direct deep links, session history, mobile width, zero API/WebSocket traffic, and zero page JavaScript errors.
 - `docs/screenshots/autohealops-vercel.png` is a genuine, visually inspected screenshot captured from the deployed URL. Original README animation markup is preserved.
 - Vercel hosts only an explicitly labelled per-browser simulation. FastAPI, persistent databases, trained ML, shared event delivery and actual Kubernetes execution still require the normal backend deployment.
+
+## Autonomous recovery update — 25 October 2026
+
+- Backend: 38 tests passed, including 19 autonomous controller/adapter contracts. Cases cover distinct-sample confirmation, dry-run, no per-action approval for controller actions, incident resolution, failure circuit, stale/missing/partial telemetry, changed authorization, exact UID ownership, verification timeout/pause and configuration validation.
+- Frontend: 12 tests passed, including automatic browser recovery, operator-action approval and reload pause. ESLint, formatting and both builds passed.
+- Real Edge checks against the compiled public preview passed the manual workflow, routes/deep links, automatic recovery without approval, reload pause, keyboard focus and 390px overflow checks, with no JavaScript errors or API traffic. `docs/screenshots/autohealops-autonomous.png` shows the actual automatic simulation result.
+- Static Kubernetes/configuration checks passed. RBAC adds only namespace-scoped ReplicaSet and HPA reads.
+- No Kubernetes context is configured and the Docker engine is unavailable. Controller tests use controlled API adapters and Prometheus responses; no live-cluster or production acceptance is claimed. See the acceptance procedure in `autonomous-recovery.md`.

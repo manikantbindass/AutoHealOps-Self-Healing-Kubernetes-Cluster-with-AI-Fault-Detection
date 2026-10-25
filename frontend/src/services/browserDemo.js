@@ -8,7 +8,7 @@ const policyDefaults = {
   paused: true,
   healing_mode: "manual",
   dry_run: true,
-  allow_automatic: false,
+  allow_automatic: true,
   max_replicas: 5,
   cooldown_seconds: 30,
   max_actions_per_hour: 10,
@@ -47,6 +47,7 @@ function initialState() {
         severity: "info",
       },
     ],
+    faultSamples: 0,
     lastStep: Math.floor(Date.now() / 5000),
   };
 }
@@ -199,11 +200,13 @@ function sample(force = false) {
     timestamp: clock(),
     source: "demo",
   };
+  s.faultSamples = s.scenario === "healthy" ? 0 : (s.faultSamples || 0) + 1;
   s.history.unshift(value);
   save();
 }
 function overview() {
   sample();
+  automaticStep();
   const s = current(),
     inventory = workloads(),
     pods = inventory.filter((x) => x.kind === "Pod");
@@ -294,6 +297,7 @@ function scenario(name) {
   if (!["cpu", "memory", "restarts", "latency", "reset"].includes(name))
     throw new Error("Unknown showcase scenario.");
   const s = current();
+  s.faultSamples = 0;
   s.scenario = name === "reset" ? "healthy" : name;
   sample(true);
   if (name === "reset") {
@@ -375,6 +379,89 @@ function scenario(name) {
   save();
   return overview();
 }
+function executeAction(item) {
+  const s = current();
+  if (item.status === "simulated") return item;
+  if (s.policy.paused || s.policy.healing_mode === "recommendation")
+    throw new Error(
+      "Resume healing in manual approval mode before simulation.",
+    );
+  const automatic =
+    s.policy.healing_mode === "automatic" &&
+    item.actor === "browser-detector" &&
+    s.faultSamples >= 3;
+  if ((!automatic && item.status !== "approved") || item.attempts)
+    throw new Error("Explicit approval required; one attempt per action.");
+  const recent = s.actions.filter(
+    (a) => a.executed_at && Date.now() - Date.parse(a.executed_at) < 3600000,
+  );
+  if (recent.length >= s.policy.max_actions_per_hour)
+    throw new Error("Showcase action budget reached for this hour.");
+  if (
+    recent.some(
+      (a) =>
+        a.target === item.target &&
+        Date.now() - Date.parse(a.executed_at) <
+          s.policy.cooldown_seconds * 1000,
+    )
+  )
+    throw new Error(
+      "Target cooldown active. Wait 30 seconds before repeating a simulated recovery.",
+    );
+  item.before = clone(metrics());
+  s.scenario = "healthy";
+  sample(true);
+  Object.assign(item, {
+    status: "simulated",
+    attempts: 1,
+    executed_at: clock(),
+    after: clone(metrics()),
+    result: "Simulated recovery only; no Kubernetes operation performed",
+  });
+  audit(
+    "execute_completed",
+    item.target,
+    "simulated",
+    item.result,
+    item.correlation_id,
+  );
+  return item;
+}
+function automaticStep() {
+  const s = current();
+  if (
+    s.policy.paused ||
+    s.policy.healing_mode !== "automatic" ||
+    s.faultSamples < 3
+  )
+    return;
+  const item = s.actions.find(
+    (a) =>
+      a.status === "recommended" &&
+      a.actor === "browser-detector" &&
+      a.target === "checkout-service",
+  );
+  if (!item) return;
+  try {
+    executeAction(item);
+    for (const alert of s.alerts) {
+      if (alert.correlation_id === item.correlation_id) {
+        alert.status = "resolved";
+        alert.resolved_at = clock();
+      }
+    }
+  } catch (error) {
+    if (s.autoBlocked !== error.message)
+      audit(
+        "automatic_blocked",
+        item.target,
+        "blocked",
+        error.message,
+        item.correlation_id,
+      );
+    s.autoBlocked = error.message;
+  }
+}
 function list(items, params) {
   let rows = items.filter(
     (x) =>
@@ -447,12 +534,10 @@ export async function demoRequest(method, path, body = {}) {
     }
   } else if (method === "put" && route === "settings") {
     if (
-      !["manual", "recommendation"].includes(body.healing_mode) ||
+      !["manual", "recommendation", "automatic"].includes(body.healing_mode) ||
       typeof body.paused !== "boolean"
     )
-      throw new Error(
-        "The public demo supports recommendation-only or manual approval.",
-      );
+      throw new Error("Choose recommendation, manual or automatic simulation.");
     s.policy = {
       ...s.policy,
       paused: body.paused,
@@ -464,6 +549,7 @@ export async function demoRequest(method, path, body = {}) {
       "updated",
       "Browser demo policy updated",
     );
+    automaticStep();
     result = s.policy;
   } else if (method === "post" && route === "demo/scenarios")
     result = scenario(body.scenario);
@@ -498,46 +584,7 @@ export async function demoRequest(method, path, body = {}) {
         item.correlation_id,
       );
     } else if (item.status !== "simulated") {
-      if (s.policy.paused || s.policy.healing_mode === "recommendation")
-        throw new Error(
-          "Resume healing in manual approval mode before simulation.",
-        );
-      if (item.status !== "approved" || item.attempts)
-        throw new Error("Explicit approval required; one attempt per action.");
-      const recent = s.actions.filter(
-        (a) =>
-          a.executed_at && Date.now() - Date.parse(a.executed_at) < 3600000,
-      );
-      if (recent.length >= s.policy.max_actions_per_hour)
-        throw new Error("Showcase action budget reached for this hour.");
-      if (
-        recent.some(
-          (a) =>
-            a.target === item.target &&
-            Date.now() - Date.parse(a.executed_at) <
-              s.policy.cooldown_seconds * 1000,
-        )
-      )
-        throw new Error(
-          "Target cooldown active. Wait 30 seconds before repeating a simulated recovery.",
-        );
-      item.before = clone(metrics());
-      s.scenario = "healthy";
-      sample(true);
-      Object.assign(item, {
-        status: "simulated",
-        attempts: 1,
-        executed_at: clock(),
-        after: clone(metrics()),
-        result: "Simulated recovery only; no Kubernetes operation performed",
-      });
-      audit(
-        "execute_completed",
-        item.target,
-        "simulated",
-        item.result,
-        item.correlation_id,
-      );
+      executeAction(item);
     }
     result = item;
   } else if (
